@@ -37,10 +37,10 @@ namespace AntOptimization
 		_window(sf::VideoMode(windowSize.x, windowSize.y), windowName, sf::Style::Default),
 		_view(),
 		_cities(),
-		_routes(),
+		_citiesShapes(),
+		_routesShapes(),
 		_ants(nullptr),
-		_mode(Modes::Default),
-		_numberOfCities(0),
+		_mode(Mode::Moving),
 		_isMouseMoving(false)
 	{
 		InitializeWindowContext();
@@ -60,7 +60,8 @@ namespace AntOptimization
 
 	void Program::InitializeResources()
 	{
-		_ants = new ACO(NUMBEROFANTS, NUMBEROFCITIES, ALPHA, BETA, Q, RO, TAUMAX, INITIALCITY);
+		_cities.numberOfCities = 0;
+		/*_ants = new ACO(NUMBEROFANTS, NUMBEROFCITIES, ALPHA, BETA, Q, RO, TAUMAX, INITIALCITY);
 		_ants->init();
 
 		_ants->setCITYPOSITION(0, 10, 10);
@@ -74,30 +75,30 @@ namespace AntOptimization
 
 		for (size_t i = 0; i < NUMBEROFCITIES - 1; ++i)
 			for (size_t j = i + 1; j < NUMBEROFCITIES; ++j)
-				_ants->connectCITIES(i, j);
+				_ants->connectCITIES(i, j);*/
 	}
 
 	void Program::Run()
 	{
-		//maybe move to another place
-		std::vector<sf::Vector2f> citiesCoordinates = getCitiesPositions(_ants);
+		////maybe move to another place
+		//std::vector<sf::Vector2f> citiesCoordinates = getCitiesPositions(_ants);
 
-		for (const auto cityCoordinates : citiesCoordinates)
-			_cities.push_back(createVertexShape(cityCoordinates, UIData::citiesRadius, UIData::citiesColor, UIData::citiesBorderColor));
-		//need to implement routes visualizations
+		//for (const auto cityCoordinates : citiesCoordinates)
+		//	_citiesShapes.push_back(createVertexShape(cityCoordinates, UIData::citiesRadius, UIData::citiesColor, UIData::citiesBorderColor));
+		////need to implement routes visualizations
 
-		for (size_t i = 0, currentRoute = 0; i < NUMBEROFCITIES - 1; ++i)
-		{
-			for (size_t j = i+1; j < NUMBEROFCITIES; ++j)
-			{
-				_routes.push_back(sf::VertexArray(sf::Lines, 2));
+		//for (size_t i = 0, currentRoute = 0; i < NUMBEROFCITIES - 1; ++i)
+		//{
+		//	for (size_t j = i+1; j < NUMBEROFCITIES; ++j)
+		//	{
+		//		_routesShapes.push_back(sf::VertexArray(sf::Lines, 2));
 
-				_routes[currentRoute][0].position = sf::Vector2f({ citiesCoordinates[i].x, citiesCoordinates[i].y});
-				_routes[currentRoute][1].position = sf::Vector2f({ citiesCoordinates[j].x, citiesCoordinates[j].y });
+		//		_routesShapes[currentRoute][0].position = sf::Vector2f({ citiesCoordinates[i].x, citiesCoordinates[i].y});
+		//		_routesShapes[currentRoute][1].position = sf::Vector2f({ citiesCoordinates[j].x, citiesCoordinates[j].y });
 
-				currentRoute++;
-			}
-		}
+		//		currentRoute++;
+		//	}
+		//}
 
 		while (_window.isOpen())
 		{
@@ -129,14 +130,19 @@ namespace AntOptimization
 		ImGui::SetWindowPos({ _windowSize.x - UIData::UIBlockWidth - UIData::UIBlockPadding, UIData::UIBlockPadding });
 		ImGui::SetWindowSize({ UIData::UIBlockWidth, 0.0f });
 
-		if (ImGui::Button("Moving"))
+		if (ImGui::Button("Move view"))
 		{
-			_mode = Modes::Default;
+			_mode = Mode::Moving;
 		}
 
-		if (ImGui::Button("Add new city"))
+		if (ImGui::Button("Add new cities"))
 		{
-			_mode = Modes::Adding;
+			_mode = Mode::Adding;
+		}
+
+		if (ImGui::Button("Rebuild routes"))
+		{
+			RebuildRoutes();
 		}
 
 		// TODO: dynamic toolbars to change algorithm parameters
@@ -212,15 +218,15 @@ namespace AntOptimization
 	{
 		if (event.mouseButton.button == sf::Mouse::Button::Left && event.mouseButton.x < _windowSize.x - UIData::UIBlockWidth)
 		{
-			if (_mode == Modes::Default)
+			if (_mode == Mode::Moving)
 			{
 				_isMouseMoving = true;
 				_startMousePos = getMouseCoordinates();
 			}
 			
-			if (_mode == Modes::Adding)
+			if (_mode == Mode::Adding)
 			{
-				// add new city
+				AddNewCity();
 				// rebuild routes
 			}
 		}
@@ -229,7 +235,7 @@ namespace AntOptimization
 
 	void Program::HandleEvent_MouseButtonReleased(const sf::Event& event)
 	{
-		if (event.mouseButton.button == sf::Mouse::Button::Left && _mode == Modes::Default)
+		if (event.mouseButton.button == sf::Mouse::Button::Left && _mode == Mode::Moving)
 		{
 			_isMouseMoving = false;
 		}
@@ -241,7 +247,7 @@ namespace AntOptimization
 		if (!_isMouseMoving)
 			return;
 
-		if (_mode != Modes::Default)
+		if (_mode != Mode::Moving)
 			return;
 
 		const sf::Vector2f newMousePos = getMouseCoordinates();
@@ -269,14 +275,14 @@ namespace AntOptimization
 
 	void Program::drawCities()
 	{
-		for (const auto city : _cities)
+		for (const auto city : _citiesShapes)
 			_window.draw(city);
 	}
 
 
 	void Program::drawRoutes()
 	{
-		for (const auto route : _routes)
+		for (const auto route : _routesShapes)
 			_window.draw(route);
 	}
 
@@ -309,6 +315,31 @@ namespace AntOptimization
 		_view = view;
 	}
 
+	void Program::AddNewCity()
+	{
+		sf::Vector2f coordinates = getMouseCoordinates();
+
+		_cities.numberOfCities++;
+		_cities.citiesPositions.push_back(coordinates);
+		_citiesShapes.push_back(createVertexShape(coordinates, UIData::citiesRadius, UIData::citiesColor, UIData::citiesBorderColor));
+	}
+
+	void Program::RebuildRoutes()
+	{
+		_routesShapes.clear();
+		for (size_t i = 0, currentRoute = 0; i < _cities.numberOfCities - 1; ++i)
+		{
+			for (size_t j = i+1; j < _cities.numberOfCities; ++j)
+			{
+				_routesShapes.push_back(sf::VertexArray(sf::Lines, 2));
+
+				_routesShapes[currentRoute][0].position = sf::Vector2f({ _cities.citiesPositions[i].x, _cities.citiesPositions[i].y});
+				_routesShapes[currentRoute][1].position = sf::Vector2f({ _cities.citiesPositions[j].x, _cities.citiesPositions[j].y });
+
+				currentRoute++;
+			}
+		}
+	}
 
 	sf::CircleShape createVertexShape(const sf::Vector2f& position, const float radius,
 		const sf::Color color, const sf::Color borderColor)

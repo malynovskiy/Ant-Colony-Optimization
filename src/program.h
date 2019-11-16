@@ -19,9 +19,15 @@ namespace AntOptimization
 
 	class Program
 	{
+	private:
+		struct Cities
+		{
+			std::vector<sf::Vector2f> citiesPositions;
+			unsigned numberOfCities;
+		};
 	public:
 
-		enum Modes {Default, Adding};
+		enum Mode {Moving, Adding};
 
 		Program(const sf::Vector2u& windowSize, const std::string& windowName);
 		~Program() {}
@@ -58,10 +64,14 @@ namespace AntOptimization
 		void HandleEvent_MouseMoved(const sf::Event& event);
 		void HandleEvent_MouseWheelScrolled(const sf::Event& event);
 
-		std::vector<sf::CircleShape> _cities;
-		std::vector<sf::VertexArray> _routes;
+		void AddNewCity();
+		void RebuildRoutes();
+
+		std::vector<sf::CircleShape> _citiesShapes;
+		std::vector<sf::VertexArray> _routesShapes;
 
 		ACO* _ants;
+		Cities _cities;
 
 		sf::ContextSettings _settings;
 		sf::RenderWindow _window;
@@ -73,9 +83,7 @@ namespace AntOptimization
 		std::string _windowName;
 		sf::Vector2u _windowSize;
 
-		unsigned _numberOfCities;
-
-		Modes _mode;
+		Mode _mode;
 
 		sf::Vector2f _startMousePos;
 		bool _isMouseMoving;
