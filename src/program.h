@@ -50,6 +50,14 @@ namespace AntOptimization
 		void zoomViewAt(const sf::Vector2i& pixel, const float& zoom);
 		void moveViewTo(const sf::Vector2f& displacement);
 
+		// Handlers
+		void HandleEvent_Closed(const sf::Event& event);
+		void HandleEvent_Resized(const sf::Event& event);
+		void HandleEvent_MouseButtonPressed(const sf::Event& event);
+		void HandleEvent_MouseButtonReleased(const sf::Event& event);
+		void HandleEvent_MouseMoved(const sf::Event& event);
+		void HandleEvent_MouseWheelScrolled(const sf::Event& event);
+
 		std::vector<sf::CircleShape> _cities;
 		std::vector<sf::VertexArray> _routes;
 
@@ -65,7 +73,12 @@ namespace AntOptimization
 		std::string _windowName;
 		sf::Vector2u _windowSize;
 
+		unsigned _numberOfCities;
+
 		Modes _mode;
+
+		sf::Vector2f _startMousePos;
+		bool _isMouseMoving;
 	};
 
 	sf::CircleShape createVertexShape(const sf::Vector2f& position, const float radius,

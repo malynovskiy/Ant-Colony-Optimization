@@ -1,11 +1,4 @@
-#include <iostream>
-#include <cstdlib>
-
-#include <cmath>
-#include <limits>
-#include <climits>
-
-#include "program.h"
+#include "Program.h"
 
 int main()
 {

@@ -39,40 +39,13 @@ namespace AntOptimization
 		_cities(),
 		_routes(),
 		_ants(nullptr),
-		_mode(Modes::Default)
+		_mode(Modes::Default),
+		_numberOfCities(0),
+		_isMouseMoving(false)
 	{
 		InitializeWindowContext();
 		ImGui::SFML::Init(_window);
 		InitializeResources();
-	}
-
-	void Program::Run()
-	{
-		//maybe move to another place
-		std::vector<sf::Vector2f> citiesCoordinates = getCitiesPositions(_ants);
-
-		for (const auto cityCoordinates : citiesCoordinates)
-			_cities.push_back(createVertexShape(cityCoordinates, UIData::citiesRadius, UIData::citiesColor, UIData::citiesBorderColor));
-		//need to implement routes visualizations
-
-		for (size_t i = 0, currentRoute = 0; i < NUMBEROFCITIES - 1; ++i)
-		{
-			for (size_t j = i+1; j < NUMBEROFCITIES; ++j)
-			{
-				_routes.push_back(sf::VertexArray(sf::Lines, 2));
-
-				_routes[currentRoute][0].position = sf::Vector2f({ citiesCoordinates[i].x, citiesCoordinates[i].y});
-				_routes[currentRoute][1].position = sf::Vector2f({ citiesCoordinates[j].x, citiesCoordinates[j].y });
-
-				currentRoute++;
-			}
-		}
-
-		while (_window.isOpen())
-		{
-			ProcessEvents();
-			Render();
-		}
 	}
 
 	void Program::InitializeWindowContext()
@@ -104,6 +77,36 @@ namespace AntOptimization
 				_ants->connectCITIES(i, j);
 	}
 
+	void Program::Run()
+	{
+		//maybe move to another place
+		std::vector<sf::Vector2f> citiesCoordinates = getCitiesPositions(_ants);
+
+		for (const auto cityCoordinates : citiesCoordinates)
+			_cities.push_back(createVertexShape(cityCoordinates, UIData::citiesRadius, UIData::citiesColor, UIData::citiesBorderColor));
+		//need to implement routes visualizations
+
+		for (size_t i = 0, currentRoute = 0; i < NUMBEROFCITIES - 1; ++i)
+		{
+			for (size_t j = i+1; j < NUMBEROFCITIES; ++j)
+			{
+				_routes.push_back(sf::VertexArray(sf::Lines, 2));
+
+				_routes[currentRoute][0].position = sf::Vector2f({ citiesCoordinates[i].x, citiesCoordinates[i].y});
+				_routes[currentRoute][1].position = sf::Vector2f({ citiesCoordinates[j].x, citiesCoordinates[j].y });
+
+				currentRoute++;
+			}
+		}
+
+		while (_window.isOpen())
+		{
+			ProcessEvents();
+			Render();
+		}
+	}
+
+
 	void Program::Render()
 	{
 		ImGui::SFML::Update(_window, _deltaClock.restart());
@@ -128,14 +131,19 @@ namespace AntOptimization
 
 		if (ImGui::Button("Moving"))
 		{
-			ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
 			_mode = Modes::Default;
 		}
 
-		if (ImGui::Button("Add new vertex"))
+		if (ImGui::Button("Add new city"))
 		{
-			ImGui::SetMouseCursor(ImGuiMouseCursor_Arrow);
 			_mode = Modes::Adding;
+		}
+
+		// TODO: dynamic toolbars to change algorithm parameters
+
+		if (ImGui::Button("Start Ant optimization"))
+		{
+			
 		}
 
 		ImGui::SliderFloat("Vertex radius", &UIData::citiesRadius, 1.0f, 50.0f);
@@ -148,9 +156,6 @@ namespace AntOptimization
 	{
 		sf::Event event;
 
-		static sf::Vector2f startMousePos;
-		static bool isMouseMoving = false;
-
 		while (_window.pollEvent(event))
 		{
 			ImGui::SFML::ProcessEvent(event);
@@ -158,82 +163,109 @@ namespace AntOptimization
 			switch (event.type)
 			{
 			case sf::Event::Closed:
-			{
-				_window.close();
-			}
-			break;
+				HandleEvent_Closed(event);
+				break;
 
 			case sf::Event::Resized:
-			{
-				_windowSize = _window.getSize();
-
-				sf::FloatRect resizedArea(-(event.size.width / 2.0f), -(event.size.height / 2.0f),
-					static_cast<float>(event.size.width), static_cast<float>(event.size.height));
-				_window.setView(sf::View(resizedArea));
-
-				std::cout << " - Window has been resised -> (" << _windowSize.x << ", " << _windowSize.y << ")" << std::endl;
-			}
-			break;
+				HandleEvent_Resized(event);
+				break;
 
 			case sf::Event::MouseButtonPressed:
-			{	
-				if (event.mouseButton.button == sf::Mouse::Button::Left	&& event.mouseButton.x < _windowSize.x - UIData::UIBlockWidth)
-				{
-					if (_mode == Modes::Default)
-					{
-						isMouseMoving = true;
-						startMousePos = getMouseCoordinates();
-					}
-					else if(_mode == Modes::Adding)
-					{
-						// add new city
-						// rebuild routes
-					}
-				}
-			}
-			break;
+				HandleEvent_MouseButtonPressed(event);
+				break;
 
 			case  sf::Event::MouseButtonReleased:
-			{	
-				if (event.mouseButton.button == sf::Mouse::Button::Left && _mode == Modes::Default)
-				{
-					isMouseMoving = false;
-				}
-			}
-			break;
+				HandleEvent_MouseButtonReleased(event);
+				break;
 
 			case sf::Event::MouseMoved:
-			{
-				if (!isMouseMoving)
-					break;
-				
-				if (_mode != Modes::Default)
-					break;
-
-				const sf::Vector2f newMousePos = getMouseCoordinates();
-				const sf::Vector2f deltaPos = startMousePos - newMousePos;
-				moveViewTo(deltaPos);
-
-				startMousePos = getMouseCoordinates();	
-			}
-			break;
+				HandleEvent_MouseMoved(event);
+				break;
 
 			case sf::Event::MouseWheelScrolled:
-			{
-				if (event.mouseWheelScroll.delta > 0)
-					zoomViewAt({ event.mouseWheelScroll.x, event.mouseWheelScroll.y }, (1.0f / zoomAmount));
-				else if (event.mouseWheelScroll.delta < 0)
-					zoomViewAt({ event.mouseWheelScroll.x, event.mouseWheelScroll.y }, zoomAmount);
-			}
-			break;
+				HandleEvent_MouseWheelScrolled(event);
+				break;
 			};
 		}
 	}
+
+
+	void Program::HandleEvent_Closed(const sf::Event& event)
+	{
+		_window.close();
+	}
+
+
+	void Program::HandleEvent_Resized(const sf::Event& event)
+	{
+		_windowSize = _window.getSize();
+
+		sf::FloatRect resizedArea(-(event.size.width / 2.0f), -(event.size.height / 2.0f),
+			static_cast<float>(event.size.width), static_cast<float>(event.size.height));
+		_window.setView(sf::View(resizedArea));
+
+		std::cout << " - Window has been resised -> (" << _windowSize.x << ", " << _windowSize.y << ")" << std::endl;
+	}
+
+
+	void Program::HandleEvent_MouseButtonPressed(const sf::Event& event)
+	{
+		if (event.mouseButton.button == sf::Mouse::Button::Left && event.mouseButton.x < _windowSize.x - UIData::UIBlockWidth)
+		{
+			if (_mode == Modes::Default)
+			{
+				_isMouseMoving = true;
+				_startMousePos = getMouseCoordinates();
+			}
+			
+			if (_mode == Modes::Adding)
+			{
+				// add new city
+				// rebuild routes
+			}
+		}
+	}
+
+
+	void Program::HandleEvent_MouseButtonReleased(const sf::Event& event)
+	{
+		if (event.mouseButton.button == sf::Mouse::Button::Left && _mode == Modes::Default)
+		{
+			_isMouseMoving = false;
+		}
+	}
+
+
+	void Program::HandleEvent_MouseMoved(const sf::Event& event)
+	{
+		if (!_isMouseMoving)
+			return;
+
+		if (_mode != Modes::Default)
+			return;
+
+		const sf::Vector2f newMousePos = getMouseCoordinates();
+		const sf::Vector2f deltaPos = _startMousePos - newMousePos;
+		moveViewTo(deltaPos);
+
+		_startMousePos = getMouseCoordinates();
+	}
+
+
+	void Program::HandleEvent_MouseWheelScrolled(const sf::Event& event)
+	{
+		if (event.mouseWheelScroll.delta > 0)
+			zoomViewAt({ event.mouseWheelScroll.x, event.mouseWheelScroll.y }, (1.0f / zoomAmount));
+		else if (event.mouseWheelScroll.delta < 0)
+			zoomViewAt({ event.mouseWheelScroll.x, event.mouseWheelScroll.y }, zoomAmount);
+	}
+
 
 	sf::Vector2f Program::getMouseCoordinates()
 	{
 		return _window.mapPixelToCoords(sf::Mouse::getPosition(_window));
 	}
+
 
 	void Program::drawCities()
 	{
@@ -241,11 +273,13 @@ namespace AntOptimization
 			_window.draw(city);
 	}
 
+
 	void Program::drawRoutes()
 	{
 		for (const auto route : _routes)
 			_window.draw(route);
 	}
+
 
 	void Program::zoomViewAt(const sf::Vector2i& pixel, const float& zoom)
 	{
@@ -264,6 +298,7 @@ namespace AntOptimization
 		_view = view;
 	}
 	
+
 	void Program::moveViewTo(const sf::Vector2f& displacement)
 	{
 		sf::View view(_window.getView());
@@ -273,6 +308,7 @@ namespace AntOptimization
 		_window.setView(view);
 		_view = view;
 	}
+
 
 	sf::CircleShape createVertexShape(const sf::Vector2f& position, const float radius,
 		const sf::Color color, const sf::Color borderColor)

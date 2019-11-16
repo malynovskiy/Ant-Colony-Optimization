@@ -26,7 +26,7 @@
     <ClCompile Include="dependencies\imgui\imgui_widgets.cpp" />
     <ClCompile Include="src\ACO.cpp" />
     <ClCompile Include="src\main.cpp" />
-    <ClCompile Include="src\program.cpp" />
+    <ClCompile Include="src\Program.cpp" />
     <ClCompile Include="src\Randoms.cpp" />
     <ClCompile Include="src\UIData.cpp" />
   </ItemGroup>
@@ -42,7 +42,7 @@
     <ClInclude Include="dependencies\imgui\imstb_textedit.h" />
     <ClInclude Include="dependencies\imgui\imstb_truetype.h" />
     <ClInclude Include="src\ACO.h" />
-    <ClInclude Include="src\program.h" />
+    <ClInclude Include="src\Program.h" />
     <ClInclude Include="src\Randoms.h" />
     <ClInclude Include="src\UIData.h" />
   </ItemGroup>
