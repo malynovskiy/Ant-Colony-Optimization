@@ -86,7 +86,10 @@ namespace AntOptimization
 		Mode _mode;
 
 		sf::Vector2f _startMousePos;
+
 		bool _isMouseMoving;
+		bool _isShowCities;
+		bool _isShowRoutes;
 	};
 
 	sf::CircleShape createVertexShape(const sf::Vector2f& position, const float radius,

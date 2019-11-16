@@ -45,6 +45,10 @@ namespace AntOptimization
 	{
 		InitializeWindowContext();
 		ImGui::SFML::Init(_window);
+
+		_isShowCities = true;
+		_isShowRoutes = true;
+
 		InitializeResources();
 	}
 
@@ -115,8 +119,11 @@ namespace AntOptimization
 		_window.clear();
 
 		drawUI();
-		drawRoutes();
-		drawCities();
+		
+		if(_isShowRoutes)
+			drawRoutes();
+		if(_isShowCities)
+			drawCities();
 
 		ImGui::SFML::Render(_window);
 
@@ -144,6 +151,9 @@ namespace AntOptimization
 		{
 			RebuildRoutes();
 		}
+
+		ImGui::Checkbox("Show cities", &_isShowCities);      
+		ImGui::Checkbox("Show routes", &_isShowRoutes);
 
 		// TODO: dynamic toolbars to change algorithm parameters
 
