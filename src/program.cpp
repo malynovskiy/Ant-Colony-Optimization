@@ -36,43 +36,21 @@ namespace AntOptimization
 		_windowName(windowName),
 		_window(sf::VideoMode(windowSize.x, windowSize.y), windowName, sf::Style::Default),
 		_view(),
-		_cities(),
-		_routes(),
+		_antsData(),
+		_citiesShapes(),
+		_routesShapes(),
 		_ants(nullptr),
-		_mode(Modes::Default)
+		_mode(Mode::Moving),
+		_isMouseMoving(false)
 	{
 		InitializeWindowContext();
 		ImGui::SFML::Init(_window);
+
+		_isShowCities = true;
+		_isShowRoutes = true;
+		_isShowBestRoute = false;
+
 		InitializeResources();
-	}
-
-	void Program::Run()
-	{
-		//maybe move to another place
-		std::vector<sf::Vector2f> citiesCoordinates = getCitiesPositions(_ants);
-
-		for (const auto cityCoordinates : citiesCoordinates)
-			_cities.push_back(createVertexShape(cityCoordinates, UIData::citiesRadius, UIData::citiesColor, UIData::citiesBorderColor));
-		//need to implement routes visualizations
-
-		for (size_t i = 0, currentRoute = 0; i < NUMBEROFCITIES - 1; ++i)
-		{
-			for (size_t j = i+1; j < NUMBEROFCITIES; ++j)
-			{
-				_routes.push_back(sf::VertexArray(sf::Lines, 2));
-
-				_routes[currentRoute][0].position = sf::Vector2f({ citiesCoordinates[i].x, citiesCoordinates[i].y});
-				_routes[currentRoute][1].position = sf::Vector2f({ citiesCoordinates[j].x, citiesCoordinates[j].y });
-
-				currentRoute++;
-			}
-		}
-
-		while (_window.isOpen())
-		{
-			ProcessEvents();
-			Render();
-		}
 	}
 
 	void Program::InitializeWindowContext()
@@ -87,22 +65,28 @@ namespace AntOptimization
 
 	void Program::InitializeResources()
 	{
-		_ants = new ACO(NUMBEROFANTS, NUMBEROFCITIES, ALPHA, BETA, Q, RO, TAUMAX, INITIALCITY);
-		_ants->init();
+		_antsData.numberOfIterations = ITERATIONS;
+		_antsData.numberOfCities = 0;
+		_antsData.numberOfAnts = 0;
+		_antsData.alpha = ALPHA;
+		_antsData.beta = BETA;
+		_antsData.q = Q;
+		_antsData.ro = RO;
+		_antsData.tauMax = TAUMAX;
+		_antsData.initialCity = INITIALCITY;
 
-		_ants->setCITYPOSITION(0, 10, 10);
-		_ants->setCITYPOSITION(1, 100, 100);
-		_ants->setCITYPOSITION(2, 200, 100);
-		_ants->setCITYPOSITION(3, 100, 300);
-		_ants->setCITYPOSITION(4, 150, 50);
-		_ants->setCITYPOSITION(5, 100, 10);
-		_ants->setCITYPOSITION(6, 200, 200);
-		_ants->setCITYPOSITION(7, 200, 300);
-
-		for (size_t i = 0; i < NUMBEROFCITIES - 1; ++i)
-			for (size_t j = i + 1; j < NUMBEROFCITIES; ++j)
-				_ants->connectCITIES(i, j);
+		_ants = new ACO();
 	}
+
+	void Program::Run()
+	{
+		while (_window.isOpen())
+		{
+			ProcessEvents();
+			Render();
+		}
+	}
+
 
 	void Program::Render()
 	{
@@ -110,33 +94,49 @@ namespace AntOptimization
 
 		_window.clear();
 
-		drawUI();
-		drawRoutes();
-		drawCities();
-
+		ProcessUI();
+		
+		if(_isShowRoutes)
+			drawRoutes();
+		if (_isShowBestRoute)
+			drawBestRoute();
+		if(_isShowCities)
+			drawCities();
 		ImGui::SFML::Render(_window);
 
 		_window.display();
 	}
 
-	void Program::drawUI()
+	void Program::ProcessUI()
 	{
 		ImGui::Begin("UI");
 
 		ImGui::SetWindowPos({ _windowSize.x - UIData::UIBlockWidth - UIData::UIBlockPadding, UIData::UIBlockPadding });
 		ImGui::SetWindowSize({ UIData::UIBlockWidth, 0.0f });
 
-		if (ImGui::Button("Moving"))
+		if (ImGui::Button("Move view"))
 		{
-			ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
-			_mode = Modes::Default;
+			_mode = Mode::Moving;
 		}
 
-		if (ImGui::Button("Add new vertex"))
+		if (ImGui::Button("Add new cities"))
 		{
-			ImGui::SetMouseCursor(ImGuiMouseCursor_Arrow);
-			_mode = Modes::Adding;
+			_mode = Mode::Adding;
 		}
+
+		ImGui::Checkbox("Show cities", &_isShowCities);      
+		ImGui::Checkbox("Show routes", &_isShowRoutes);
+
+		ImGui::Checkbox("Show best routes", &_isShowBestRoute);
+
+		// TODO: dynamic toolbars to change algorithm parameters
+		ImGui::SliderInt("Number of Iterations", &_antsData.numberOfIterations, 1, 50);
+
+		if (ImGui::Button("Lock Ant Data"))
+			AntAlgorithmInitData();
+
+		if (ImGui::Button("Start Ant optimization"))
+			AntAlgorithmRun();
 
 		ImGui::SliderFloat("Vertex radius", &UIData::citiesRadius, 1.0f, 50.0f);
 
@@ -148,9 +148,6 @@ namespace AntOptimization
 	{
 		sf::Event event;
 
-		static sf::Vector2f startMousePos;
-		static bool isMouseMoving = false;
-
 		while (_window.pollEvent(event))
 		{
 			ImGui::SFML::ProcessEvent(event);
@@ -158,76 +155,124 @@ namespace AntOptimization
 			switch (event.type)
 			{
 			case sf::Event::Closed:
-			{
-				_window.close();
-			}
-			break;
+				HandleEvent_Closed(event);
+				break;
 
 			case sf::Event::Resized:
-			{
-				_windowSize = _window.getSize();
-
-				sf::FloatRect resizedArea(-(event.size.width / 2.0f), -(event.size.height / 2.0f),
-					static_cast<float>(event.size.width), static_cast<float>(event.size.height));
-				_window.setView(sf::View(resizedArea));
-
-				std::cout << " - Window has been resised -> (" << _windowSize.x << ", " << _windowSize.y << ")" << std::endl;
-			}
-			break;
+				HandleEvent_Resized(event);
+				break;
 
 			case sf::Event::MouseButtonPressed:
-			{	
-				if (event.mouseButton.button == sf::Mouse::Button::Left	&& event.mouseButton.x < _windowSize.x - UIData::UIBlockWidth)
-				{
-					if (_mode == Modes::Default)
-					{
-						isMouseMoving = true;
-						startMousePos = getMouseCoordinates();
-					}
-					else if(_mode == Modes::Adding)
-					{
-						// add new city
-						// rebuild routes
-					}
-				}
-			}
-			break;
+				HandleEvent_MouseButtonPressed(event);
+				break;
 
 			case  sf::Event::MouseButtonReleased:
-			{	
-				if (event.mouseButton.button == sf::Mouse::Button::Left && _mode == Modes::Default)
-				{
-					isMouseMoving = false;
-				}
-			}
-			break;
+				HandleEvent_MouseButtonReleased(event);
+				break;
 
 			case sf::Event::MouseMoved:
-			{
-				if (!isMouseMoving)
-					break;
-				
-				if (_mode != Modes::Default)
-					break;
-
-				const sf::Vector2f newMousePos = getMouseCoordinates();
-				const sf::Vector2f deltaPos = startMousePos - newMousePos;
-				moveViewTo(deltaPos);
-
-				startMousePos = getMouseCoordinates();	
-			}
-			break;
+				HandleEvent_MouseMoved(event);
+				break;
 
 			case sf::Event::MouseWheelScrolled:
-			{
-				if (event.mouseWheelScroll.delta > 0)
-					zoomViewAt({ event.mouseWheelScroll.x, event.mouseWheelScroll.y }, (1.0f / zoomAmount));
-				else if (event.mouseWheelScroll.delta < 0)
-					zoomViewAt({ event.mouseWheelScroll.x, event.mouseWheelScroll.y }, zoomAmount);
-			}
-			break;
+				HandleEvent_MouseWheelScrolled(event);
+				break;
 			};
 		}
+	}
+
+
+	void Program::HandleEvent_Closed(const sf::Event& event)
+	{
+		_window.close();
+	}
+
+
+	void Program::HandleEvent_Resized(const sf::Event& event)
+	{
+		_windowSize = _window.getSize();
+
+		sf::FloatRect resizedArea(-(event.size.width / 2.0f), -(event.size.height / 2.0f),
+			static_cast<float>(event.size.width), static_cast<float>(event.size.height));
+		_window.setView(sf::View(resizedArea));
+
+		std::cout << " - Window has been resised -> (" << _windowSize.x << ", " << _windowSize.y << ")" << std::endl;
+	}
+
+
+	void Program::HandleEvent_MouseButtonPressed(const sf::Event& event)
+	{
+		if (event.mouseButton.button == sf::Mouse::Button::Left && event.mouseButton.x < _windowSize.x - UIData::UIBlockWidth)
+		{
+			if (_mode == Mode::Moving)
+			{
+				_isMouseMoving = true;
+				_startMousePos = getMouseCoordinates();
+			}
+			
+			if (_mode == Mode::Adding)
+			{
+				AddNewCity();
+				RebuildRoutes();
+			}
+		}
+	}
+
+
+	void Program::HandleEvent_MouseButtonReleased(const sf::Event& event)
+	{
+		if (event.mouseButton.button == sf::Mouse::Button::Left && _mode == Mode::Moving)
+		{
+			_isMouseMoving = false;
+		}
+	}
+
+
+	void Program::HandleEvent_MouseMoved(const sf::Event& event)
+	{
+		if (!_isMouseMoving)
+			return;
+
+		if (_mode != Mode::Moving)
+			return;
+
+		const sf::Vector2f newMousePos = getMouseCoordinates();
+		const sf::Vector2f deltaPos = _startMousePos - newMousePos;
+		moveViewTo(deltaPos);
+
+		_startMousePos = getMouseCoordinates();
+	}
+
+
+	void Program::HandleEvent_MouseWheelScrolled(const sf::Event& event)
+	{
+		if (event.mouseWheelScroll.delta > 0)
+			zoomViewAt({ event.mouseWheelScroll.x, event.mouseWheelScroll.y }, (1.0f / zoomAmount));
+		else if (event.mouseWheelScroll.delta < 0)
+			zoomViewAt({ event.mouseWheelScroll.x, event.mouseWheelScroll.y }, zoomAmount);
+	}
+
+	void Program::AntAlgorithmInitData()
+	{
+		_ants->init(_antsData.numberOfAnts, _antsData.numberOfCities,
+			_antsData.alpha, _antsData.beta, _antsData.q, _antsData.ro, _antsData.tauMax, _antsData.initialCity);
+
+		for (size_t i = 0; i < _antsData.numberOfCities; ++i)
+			_ants->setCITYPOSITION(i, _citiesPositions[i].x, _citiesPositions[i].y);
+
+		for (size_t i = 0; i < _antsData.numberOfCities - 1; ++i)
+			for (size_t j = i + 1; j < _antsData.numberOfCities; ++j)
+				_ants->connectCITIES(i, j);
+	}
+
+	void Program::AntAlgorithmRun()
+	{
+		_ants->printGRAPH();
+		_ants->printPHEROMONES();
+		_ants->optimize(_antsData.numberOfIterations);
+		_ants->printRESULTS();
+
+		MarkUpBestRoute();
 	}
 
 	sf::Vector2f Program::getMouseCoordinates()
@@ -235,16 +280,27 @@ namespace AntOptimization
 		return _window.mapPixelToCoords(sf::Mouse::getPosition(_window));
 	}
 
+
 	void Program::drawCities()
 	{
-		for (const auto city : _cities)
+		for (const auto city : _citiesShapes)
 			_window.draw(city);
 	}
 
+
 	void Program::drawRoutes()
 	{
-		for (const auto route : _routes)
+		for (const auto route : _routesShapes)
 			_window.draw(route);
+	}
+
+	void Program::drawBestRoute()
+	{
+		if (_bestRouteShapes.empty())
+			return;
+
+		for (const auto route : _bestRouteShapes)
+			_window.draw(route.verticies, route.numberOfVertices, route.type);
 	}
 
 	void Program::zoomViewAt(const sf::Vector2i& pixel, const float& zoom)
@@ -264,6 +320,7 @@ namespace AntOptimization
 		_view = view;
 	}
 	
+
 	void Program::moveViewTo(const sf::Vector2f& displacement)
 	{
 		sf::View view(_window.getView());
@@ -273,6 +330,70 @@ namespace AntOptimization
 		_window.setView(view);
 		_view = view;
 	}
+
+	void Program::AddNewCity()
+	{
+		sf::Vector2f coordinates = getMouseCoordinates();
+
+		_antsData.numberOfCities++;
+		_antsData.numberOfAnts++;
+
+		_citiesPositions.push_back(coordinates);
+		_citiesShapes.push_back(createVertexShape(coordinates, UIData::citiesRadius, UIData::citiesColor, UIData::citiesBorderColor));
+	}
+
+	void Program::AddNewCity(const sf::Vector2f& coords)
+	{
+		_antsData.numberOfCities++;
+		_antsData.numberOfAnts++;
+
+		_citiesPositions.push_back(coords);
+		_citiesShapes.push_back(createVertexShape(coords, UIData::citiesRadius, UIData::citiesColor, UIData::citiesBorderColor));
+	}
+
+	void Program::RebuildRoutes()
+	{
+		_routesShapes.clear();
+		for (size_t i = 0, currentRoute = 0; i < _antsData.numberOfCities - 1; ++i)
+		{
+			for (size_t j = i+1; j < _antsData.numberOfCities; ++j)
+			{
+				_routesShapes.push_back(sf::VertexArray(sf::Lines, 2));
+
+				_routesShapes[currentRoute][0].position = sf::Vector2f({ _citiesPositions[i].x, _citiesPositions[i].y});
+				_routesShapes[currentRoute][1].position = sf::Vector2f({ _citiesPositions[j].x, _citiesPositions[j].y });
+
+				currentRoute++;
+			}
+		}
+	}
+	
+	void Program::MarkUpBestRoute()
+	{
+		int* bestRoute = _ants->getBestRoute();
+		
+		for (size_t i = 0; i < _antsData.numberOfCities-1; ++i)
+		{
+			ColorLine line = { {
+					sf::Vertex(sf::Vector2f(_citiesPositions[bestRoute[i]].x, _citiesPositions[bestRoute[i]].y), sf::Color::Red),
+					sf::Vertex(sf::Vector2f(_citiesPositions[bestRoute[i + 1]].x, _citiesPositions[bestRoute[i + 1]].y), sf::Color::Red)},
+					2,
+					sf::Lines };
+
+			_bestRouteShapes.push_back(line);
+		}
+
+		// connect start with finish of the route
+		_bestRouteShapes.push_back({ {
+					sf::Vertex(sf::Vector2f(_citiesPositions[bestRoute[0]].x, _citiesPositions[bestRoute[0]].y), sf::Color::Red),
+					sf::Vertex(sf::Vector2f(_citiesPositions[bestRoute[_antsData.numberOfCities - 1]].x,
+							_citiesPositions[bestRoute[_antsData.numberOfCities - 1]].y), sf::Color::Red)},
+					2,
+					sf::Lines });
+
+		_isShowBestRoute = true;
+	}
+
 
 	sf::CircleShape createVertexShape(const sf::Vector2f& position, const float radius,
 		const sf::Color color, const sf::Color borderColor)
