@@ -17,16 +17,24 @@ namespace AntOptimization
 			return 1;
 	}
 
+	struct ACOData
+	{
+		unsigned short numberOfCities;
+		unsigned short numberOfAnts;
+
+		double alpha;
+		double beta;
+		double q;
+		double ro;
+
+		int tauMax;
+		int short initialCity;
+		int numberOfIterations;
+	};
+
 	class Program
 	{
-	private:
-		struct Cities
-		{
-			std::vector<sf::Vector2f> citiesPositions;
-			unsigned numberOfCities;
-		};
 	public:
-
 		enum Mode {Moving, Adding};
 
 		Program(const sf::Vector2u& windowSize, const std::string& windowName);
@@ -46,7 +54,7 @@ namespace AntOptimization
 		void InitializeResources();
 
 		void Render();
-		void drawUI();
+		void ProcessUI();
 
 		void drawCities();
 		void drawRoutes();
@@ -64,14 +72,20 @@ namespace AntOptimization
 		void HandleEvent_MouseMoved(const sf::Event& event);
 		void HandleEvent_MouseWheelScrolled(const sf::Event& event);
 
+		void AntAlgorithmInitData();
+		void AntAlgorithmRun();
+
 		void AddNewCity();
+		void AddNewCity(const sf::Vector2f& coords);
 		void RebuildRoutes();
 
 		std::vector<sf::CircleShape> _citiesShapes;
 		std::vector<sf::VertexArray> _routesShapes;
 
+		std::vector<sf::Vector2f> _citiesPositions;
+
 		ACO* _ants;
-		Cities _cities;
+		ACOData _antsData;
 
 		sf::ContextSettings _settings;
 		sf::RenderWindow _window;

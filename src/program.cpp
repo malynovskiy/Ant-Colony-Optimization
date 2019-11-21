@@ -36,7 +36,7 @@ namespace AntOptimization
 		_windowName(windowName),
 		_window(sf::VideoMode(windowSize.x, windowSize.y), windowName, sf::Style::Default),
 		_view(),
-		_cities(),
+		_antsData(),
 		_citiesShapes(),
 		_routesShapes(),
 		_ants(nullptr),
@@ -64,46 +64,21 @@ namespace AntOptimization
 
 	void Program::InitializeResources()
 	{
-		_cities.numberOfCities = 0;
-		/*_ants = new ACO(NUMBEROFANTS, NUMBEROFCITIES, ALPHA, BETA, Q, RO, TAUMAX, INITIALCITY);
-		_ants->init();
+		_antsData.numberOfIterations = ITERATIONS;
+		_antsData.numberOfCities = 0;
+		_antsData.numberOfAnts = 0;
+		_antsData.alpha = ALPHA;
+		_antsData.beta = BETA;
+		_antsData.q = Q;
+		_antsData.ro = RO;
+		_antsData.tauMax = TAUMAX;
+		_antsData.initialCity = INITIALCITY;
 
-		_ants->setCITYPOSITION(0, 10, 10);
-		_ants->setCITYPOSITION(1, 100, 100);
-		_ants->setCITYPOSITION(2, 200, 100);
-		_ants->setCITYPOSITION(3, 100, 300);
-		_ants->setCITYPOSITION(4, 150, 50);
-		_ants->setCITYPOSITION(5, 100, 10);
-		_ants->setCITYPOSITION(6, 200, 200);
-		_ants->setCITYPOSITION(7, 200, 300);
-
-		for (size_t i = 0; i < NUMBEROFCITIES - 1; ++i)
-			for (size_t j = i + 1; j < NUMBEROFCITIES; ++j)
-				_ants->connectCITIES(i, j);*/
+		_ants = new ACO();
 	}
 
 	void Program::Run()
 	{
-		////maybe move to another place
-		//std::vector<sf::Vector2f> citiesCoordinates = getCitiesPositions(_ants);
-
-		//for (const auto cityCoordinates : citiesCoordinates)
-		//	_citiesShapes.push_back(createVertexShape(cityCoordinates, UIData::citiesRadius, UIData::citiesColor, UIData::citiesBorderColor));
-		////need to implement routes visualizations
-
-		//for (size_t i = 0, currentRoute = 0; i < NUMBEROFCITIES - 1; ++i)
-		//{
-		//	for (size_t j = i+1; j < NUMBEROFCITIES; ++j)
-		//	{
-		//		_routesShapes.push_back(sf::VertexArray(sf::Lines, 2));
-
-		//		_routesShapes[currentRoute][0].position = sf::Vector2f({ citiesCoordinates[i].x, citiesCoordinates[i].y});
-		//		_routesShapes[currentRoute][1].position = sf::Vector2f({ citiesCoordinates[j].x, citiesCoordinates[j].y });
-
-		//		currentRoute++;
-		//	}
-		//}
-
 		while (_window.isOpen())
 		{
 			ProcessEvents();
@@ -118,7 +93,7 @@ namespace AntOptimization
 
 		_window.clear();
 
-		drawUI();
+		ProcessUI();
 		
 		if(_isShowRoutes)
 			drawRoutes();
@@ -130,7 +105,7 @@ namespace AntOptimization
 		_window.display();
 	}
 
-	void Program::drawUI()
+	void Program::ProcessUI()
 	{
 		ImGui::Begin("UI");
 
@@ -147,20 +122,17 @@ namespace AntOptimization
 			_mode = Mode::Adding;
 		}
 
-		if (ImGui::Button("Rebuild routes"))
-		{
-			RebuildRoutes();
-		}
-
 		ImGui::Checkbox("Show cities", &_isShowCities);      
 		ImGui::Checkbox("Show routes", &_isShowRoutes);
 
 		// TODO: dynamic toolbars to change algorithm parameters
+		ImGui::SliderInt("Number of Iterations", &_antsData.numberOfIterations, 1, 50);
+
+		if (ImGui::Button("Lock Ant Data"))
+			AntAlgorithmInitData();
 
 		if (ImGui::Button("Start Ant optimization"))
-		{
-			
-		}
+			AntAlgorithmRun();
 
 		ImGui::SliderFloat("Vertex radius", &UIData::citiesRadius, 1.0f, 50.0f);
 
@@ -237,7 +209,7 @@ namespace AntOptimization
 			if (_mode == Mode::Adding)
 			{
 				AddNewCity();
-				// rebuild routes
+				RebuildRoutes();
 			}
 		}
 	}
@@ -276,6 +248,26 @@ namespace AntOptimization
 			zoomViewAt({ event.mouseWheelScroll.x, event.mouseWheelScroll.y }, zoomAmount);
 	}
 
+	void Program::AntAlgorithmInitData()
+	{
+		_ants->init(_antsData.numberOfAnts, _antsData.numberOfCities,
+			_antsData.alpha, _antsData.beta, _antsData.q, _antsData.ro, _antsData.tauMax, _antsData.initialCity);
+
+		for (size_t i = 0; i < _antsData.numberOfCities; ++i)
+			_ants->setCITYPOSITION(i, _citiesPositions[i].x, _citiesPositions[i].y);
+
+		for (size_t i = 0; i < _antsData.numberOfCities - 1; ++i)
+			for (size_t j = i + 1; j < _antsData.numberOfCities; ++j)
+				_ants->connectCITIES(i, j);
+	}
+
+	void Program::AntAlgorithmRun()
+	{
+		_ants->printGRAPH();
+		_ants->printPHEROMONES();
+		_ants->optimize(_antsData.numberOfIterations);
+		_ants->printRESULTS();
+	}
 
 	sf::Vector2f Program::getMouseCoordinates()
 	{
@@ -329,22 +321,33 @@ namespace AntOptimization
 	{
 		sf::Vector2f coordinates = getMouseCoordinates();
 
-		_cities.numberOfCities++;
-		_cities.citiesPositions.push_back(coordinates);
+		_antsData.numberOfCities++;
+		_antsData.numberOfAnts++;
+
+		_citiesPositions.push_back(coordinates);
 		_citiesShapes.push_back(createVertexShape(coordinates, UIData::citiesRadius, UIData::citiesColor, UIData::citiesBorderColor));
+	}
+
+	void Program::AddNewCity(const sf::Vector2f& coords)
+	{
+		_antsData.numberOfCities++;
+		_antsData.numberOfAnts++;
+
+		_citiesPositions.push_back(coords);
+		_citiesShapes.push_back(createVertexShape(coords, UIData::citiesRadius, UIData::citiesColor, UIData::citiesBorderColor));
 	}
 
 	void Program::RebuildRoutes()
 	{
 		_routesShapes.clear();
-		for (size_t i = 0, currentRoute = 0; i < _cities.numberOfCities - 1; ++i)
+		for (size_t i = 0, currentRoute = 0; i < _antsData.numberOfCities - 1; ++i)
 		{
-			for (size_t j = i+1; j < _cities.numberOfCities; ++j)
+			for (size_t j = i+1; j < _antsData.numberOfCities; ++j)
 			{
 				_routesShapes.push_back(sf::VertexArray(sf::Lines, 2));
 
-				_routesShapes[currentRoute][0].position = sf::Vector2f({ _cities.citiesPositions[i].x, _cities.citiesPositions[i].y});
-				_routesShapes[currentRoute][1].position = sf::Vector2f({ _cities.citiesPositions[j].x, _cities.citiesPositions[j].y });
+				_routesShapes[currentRoute][0].position = sf::Vector2f({ _citiesPositions[i].x, _citiesPositions[i].y});
+				_routesShapes[currentRoute][1].position = sf::Vector2f({ _citiesPositions[j].x, _citiesPositions[j].y });
 
 				currentRoute++;
 			}

@@ -38,12 +38,12 @@ namespace AntOptimization
 {
 	class ACO {
 	public:
-		ACO(int nAnts, int nCities,
-			double alpha, double beta, double q, double ro, double taumax,
-			int initCity);
+		ACO();
 		~ACO();
 
-		void init();
+		void init(int nAnts, int nCities,
+			double alpha, double beta, double q, double ro, double taumax,
+			int initCity);
 
 		void connectCITIES(int cityi, int cityj);
 		void setCITYPOSITION(int city, double x, double y);

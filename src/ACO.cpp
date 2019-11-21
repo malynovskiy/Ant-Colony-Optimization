@@ -45,18 +45,8 @@ using namespace std;
 
 namespace AntOptimization 
 {
-	ACO::ACO(int nAnts, int nCities,
-		double alpha, double beta, double q, double ro, double taumax,
-		int initCity) {
-		NUMBEROFANTS = nAnts;
-		NUMBEROFCITIES = nCities;
-		ALPHA = alpha;
-		BETA = beta;
-		Q = q;
-		RO = ro;
-		TAUMAX = taumax;
-		INITIALCITY = initCity;
-
+	ACO::ACO() 
+	{
 		randoms = new Randoms(21);
 	}
 	ACO::~ACO() {
@@ -76,7 +66,19 @@ namespace AntOptimization
 		delete[] PROBS;
 	}
 
-	void ACO::init() {
+	void ACO::init(int nAnts, int nCities,
+		double alpha, double beta, double q, double ro, double taumax,
+		int initCity)
+	{
+		NUMBEROFANTS = nAnts;
+		NUMBEROFCITIES = nCities;
+		ALPHA = alpha;
+		BETA = beta;
+		Q = q;
+		RO = ro;
+		TAUMAX = taumax;
+		INITIALCITY = initCity;
+
 		GRAPH = new int* [NUMBEROFCITIES];
 		CITIES = new double* [NUMBEROFCITIES];
 		PHEROMONES = new double* [NUMBEROFCITIES];
@@ -113,7 +115,7 @@ namespace AntOptimization
 			BESTROUTE[i] = -1;
 		}
 	}
-	
+
 	void ACO::connectCITIES(int cityi, int cityj) {
 		GRAPH[cityi][cityj] = 1;
 		PHEROMONES[cityi][cityj] = randoms->Uniforme() * TAUMAX;
@@ -308,10 +310,6 @@ namespace AntOptimization
 			cout << BESTROUTE[i] << " ";
 		}
 		cout << endl << "length: " << BESTLENGTH << endl;
-
-		cout << endl << " IDEAL ROUTE:" << endl;
-		cout << "0 7 6 2 4 5 1 3" << endl;
-		cout << "length: 127.509" << endl;
 	}
 
 	void ACO::updatePHEROMONES() {
