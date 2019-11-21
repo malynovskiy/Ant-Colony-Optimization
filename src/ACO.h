@@ -56,6 +56,7 @@ namespace AntOptimization
 
 		double getCityCoordinateX(size_t cityNumber);
 		double getCityCoordinateY(size_t cityNumber);
+		int* getBestRoute();
 	private:
 		double distance(int cityi, int cityj);
 		bool exists(int cityi, int cityc);

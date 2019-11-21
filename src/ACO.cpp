@@ -391,4 +391,9 @@ namespace AntOptimization
 
 		return CITIES[cityNumber][1];
 	}
+
+	int* ACO::getBestRoute()
+	{
+		return BESTROUTE;
+	}
 }

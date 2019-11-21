@@ -48,6 +48,7 @@ namespace AntOptimization
 
 		_isShowCities = true;
 		_isShowRoutes = true;
+		_isShowBestRoute = false;
 
 		InitializeResources();
 	}
@@ -97,9 +98,10 @@ namespace AntOptimization
 		
 		if(_isShowRoutes)
 			drawRoutes();
+		if (_isShowBestRoute)
+			drawBestRoute();
 		if(_isShowCities)
 			drawCities();
-
 		ImGui::SFML::Render(_window);
 
 		_window.display();
@@ -124,6 +126,8 @@ namespace AntOptimization
 
 		ImGui::Checkbox("Show cities", &_isShowCities);      
 		ImGui::Checkbox("Show routes", &_isShowRoutes);
+
+		ImGui::Checkbox("Show best routes", &_isShowBestRoute);
 
 		// TODO: dynamic toolbars to change algorithm parameters
 		ImGui::SliderInt("Number of Iterations", &_antsData.numberOfIterations, 1, 50);
@@ -267,6 +271,8 @@ namespace AntOptimization
 		_ants->printPHEROMONES();
 		_ants->optimize(_antsData.numberOfIterations);
 		_ants->printRESULTS();
+
+		MarkUpBestRoute();
 	}
 
 	sf::Vector2f Program::getMouseCoordinates()
@@ -288,6 +294,14 @@ namespace AntOptimization
 			_window.draw(route);
 	}
 
+	void Program::drawBestRoute()
+	{
+		if (_bestRouteShapes.empty())
+			return;
+
+		for (const auto route : _bestRouteShapes)
+			_window.draw(route.verticies, route.numberOfVertices, route.type);
+	}
 
 	void Program::zoomViewAt(const sf::Vector2i& pixel, const float& zoom)
 	{
@@ -353,6 +367,33 @@ namespace AntOptimization
 			}
 		}
 	}
+	
+	void Program::MarkUpBestRoute()
+	{
+		int* bestRoute = _ants->getBestRoute();
+		
+		for (size_t i = 0; i < _antsData.numberOfCities-1; ++i)
+		{
+			ColorLine line = { {
+					sf::Vertex(sf::Vector2f(_citiesPositions[bestRoute[i]].x, _citiesPositions[bestRoute[i]].y), sf::Color::Red),
+					sf::Vertex(sf::Vector2f(_citiesPositions[bestRoute[i + 1]].x, _citiesPositions[bestRoute[i + 1]].y), sf::Color::Red)},
+					2,
+					sf::Lines };
+
+			_bestRouteShapes.push_back(line);
+		}
+
+		// connect start with finish of the route
+		_bestRouteShapes.push_back({ {
+					sf::Vertex(sf::Vector2f(_citiesPositions[bestRoute[0]].x, _citiesPositions[bestRoute[0]].y), sf::Color::Red),
+					sf::Vertex(sf::Vector2f(_citiesPositions[bestRoute[_antsData.numberOfCities - 1]].x,
+							_citiesPositions[bestRoute[_antsData.numberOfCities - 1]].y), sf::Color::Red)},
+					2,
+					sf::Lines });
+
+		_isShowBestRoute = true;
+	}
+
 
 	sf::CircleShape createVertexShape(const sf::Vector2f& position, const float radius,
 		const sf::Color color, const sf::Color borderColor)

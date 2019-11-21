@@ -32,6 +32,14 @@ namespace AntOptimization
 		int numberOfIterations;
 	};
 
+	struct ColorLine
+	{
+		sf::Vertex verticies[2];
+		unsigned short numberOfVertices;
+		sf::PrimitiveType type;
+	};
+
+
 	class Program
 	{
 	public:
@@ -59,6 +67,8 @@ namespace AntOptimization
 		void drawCities();
 		void drawRoutes();
 
+		void drawBestRoute();
+
 		void ProcessEvents();
 			   
 		void zoomViewAt(const sf::Vector2i& pixel, const float& zoom);
@@ -79,8 +89,12 @@ namespace AntOptimization
 		void AddNewCity(const sf::Vector2f& coords);
 		void RebuildRoutes();
 
+		void MarkUpBestRoute();
+
 		std::vector<sf::CircleShape> _citiesShapes;
 		std::vector<sf::VertexArray> _routesShapes;
+
+		std::vector<ColorLine> _bestRouteShapes;
 
 		std::vector<sf::Vector2f> _citiesPositions;
 
@@ -104,6 +118,7 @@ namespace AntOptimization
 		bool _isMouseMoving;
 		bool _isShowCities;
 		bool _isShowRoutes;
+		bool _isShowBestRoute;
 	};
 
 	sf::CircleShape createVertexShape(const sf::Vector2f& position, const float radius,
